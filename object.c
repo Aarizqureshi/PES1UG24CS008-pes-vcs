@@ -89,7 +89,70 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     // Compute SHA-256 of the entire object (header + data)
     ObjectID id;
     compute_hash(full_obj, total_len, &id);
-    
+    if (object_exists(&id)) {
+        *id_out = id;
+        free(full_obj);
+        return 0;
+    }
+ 
+    // Build shard directory path: .pes/objects/XX/
+    char hex[HASH_HEX_SIZE + 1];
+    hash_to_hex(&id, hex);
+ 
+    char shard_dir[512];
+    snprintf(shard_dir, sizeof(shard_dir), "%s/%.2s", OBJECTS_DIR, hex);
+ 
+    // Create shard directory if it doesn't exist (ignore EEXIST)
+    mkdir(shard_dir, 0755);
+ 
+    // Build final object path
+    char final_path[512];
+    object_path(&id, final_path, sizeof(final_path));
+ 
+    // Write to a temp file in the same shard directory (so rename is atomic)
+    char tmp_path[512];
+    snprintf(tmp_path, sizeof(tmp_path), "%s/tmp_XXXXXX", shard_dir);
+ 
+    int fd = mkstemp(tmp_path);
+    if (fd < 0) {
+        free(full_obj);
+        return -1;
+    }
+ 
+    // Write the full object contents
+    ssize_t written = write(fd, full_obj, total_len);
+    free(full_obj);
+    if (written < 0 || (size_t)written != total_len) {
+        close(fd);
+        unlink(tmp_path);
+        return -1;
+    }
+ 
+    // fsync the temp file to ensure data reaches disk before the rename
+    if (fsync(fd) != 0) {
+        close(fd);
+        unlink(tmp_path);
+        return -1;
+    }
+    close(fd);
+ 
+    // Atomically rename temp file to the final path
+    if (rename(tmp_path, final_path) != 0) {
+        unlink(tmp_path);
+        return -1;
+    }
+ 
+    // fsync the shard directory to persist the directory entry for the rename
+    int dir_fd = open(shard_dir, O_RDONLY);
+    if (dir_fd >= 0) {
+        fsync(dir_fd);
+        close(dir_fd);
+    }
+ 
+    // Store the computed hash in the output parameter
+    *id_out = id;
+    return 0;
+}
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
     // TODO: Implement
     (void)type; (void)data; (void)len; (void)id_out;

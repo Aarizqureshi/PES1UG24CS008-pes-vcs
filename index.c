@@ -161,4 +161,51 @@ int index_load(Index *index) {
     fclose(f);
     return 0;
 }
+
+static int compare_entries_by_path(const void *a, const void *b) {
+    return strcmp(((const IndexEntry *)a)->path,
+                  ((const IndexEntry *)b)->path);
+}
  
+// Save the index atomically: write to a temp file, fsync, then rename
+// over the real index so a crash never leaves a half-written file.
+int index_save(const Index *index) {
+    // build temp path alongside the real index file
+    char tmp_path[512];
+    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp_XXXXXX", INDEX_FILE);
+ 
+    int fd = mkstemp(tmp_path);
+    if (fd < 0) return -1;
+ 
+    FILE *f = fdopen(fd, "w");
+    if (!f) { close(fd); unlink(tmp_path); return -1; }
+ 
+    // sort a mutable copy so we don't reorder the caller's in-memory index
+    Index sorted = *index;
+    qsort(sorted.entries, (size_t)sorted.count,
+          sizeof(IndexEntry), compare_entries_by_path);
+ 
+    char hex[HASH_HEX_SIZE + 1];
+    for (int i = 0; i < sorted.count; i++) {
+        const IndexEntry *e = &sorted.entries[i];
+        hash_to_hex(&e->hash, hex);
+        fprintf(f, "%o %s %llu %u %s\n",
+                e->mode,
+                hex,
+                (unsigned long long)e->mtime_sec,
+                e->size,
+                e->path);
+    }
+ 
+    // flush stdio buffer → kernel buffer → disk before rename
+    fflush(f);
+    fsync(fileno(f));
+    fclose(f);
+ 
+    // atomic replace: no reader ever sees a partial file
+    if (rename(tmp_path, INDEX_FILE) != 0) {
+        unlink(tmp_path);
+        return -1;
+    }
+    return 0;
+}

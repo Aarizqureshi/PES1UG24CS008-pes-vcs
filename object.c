@@ -69,6 +69,28 @@ static const char *object_type_string(ObjectType type) {
     }
 }
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
+    // --- Commit 2: Build header, assemble full object buffer, compute hash ---
+ 
+    const char *type_str = object_type_string(type);
+ 
+    // Build the header: "<type> <size>\0"
+    char header[64];
+    int header_len = snprintf(header, sizeof(header), "%s %zu", type_str, len) + 1;
+    // +1 to include the '\0' terminator that snprintf doesn't count
+ 
+    // Allocate buffer for header + data
+    size_t total_len = (size_t)header_len + len;
+    uint8_t *full_obj = malloc(total_len);
+    if (!full_obj) return -1;
+ 
+    memcpy(full_obj, header, (size_t)header_len);
+    memcpy(full_obj + header_len, data, len);
+ 
+    // Compute SHA-256 of the entire object (header + data)
+    ObjectID id;
+    compute_hash(full_obj, total_len, &id);
+    
+int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
     // TODO: Implement
     (void)type; (void)data; (void)len; (void)id_out;
     return -1;

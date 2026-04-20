@@ -171,26 +171,37 @@ static int write_tree_level(const IndexEntry *entries, int count,
             te->name[sizeof(te->name) - 1] = '\0';
         }
     }
+     void  *tree_data = NULL;
+    size_t tree_len  = 0;
+    if (tree_serialize(&tree, &tree_data, &tree_len) != 0)
+        return -1;
  
- 
-// ─── TODO: Implement these ──────────────────────────────────────────────────
-
-// Build a tree hierarchy from the current index and write all tree
-// objects to the object store.
-//
-// HINTS - Useful functions and concepts for this phase:
-//   - index_load      : load the staged files into memory
-//   - strchr          : find the first '/' in a path to separate directories from files
-//   - strncmp         : compare prefixes to group files belonging to the same subdirectory
-//   - Recursion       : you will likely want to create a recursive helper function 
-//                       (e.g., `write_tree_level(entries, count, depth)`) to handle nested dirs.
-//   - tree_serialize  : convert your populated Tree struct into a binary buffer
-//   - object_write    : save that binary buffer to the store as OBJ_TREE
-//
-// Returns 0 on success, -1 on error.
-int tree_from_index(ObjectID *id_out) {
-    // TODO: Implement recursive tree building
-    // (See Lab Appendix for logical steps)
-    (void)id_out;
-    return -1;
+    int ret = object_write(OBJ_TREE, tree_data, tree_len, id_out);
+    free(tree_data);
+    return ret;
 }
+ 
+
+ 
+int tree_from_index(ObjectID *id_out) {
+    Index idx;
+    if (index_load(&idx) != 0) return -1;
+ 
+    // handle empty staging area: write a valid empty tree object
+    if (idx.count == 0) {
+        Tree empty; empty.count = 0;
+        void *d = NULL; size_t l = 0;
+        if (tree_serialize(&empty, &d, &l) != 0) return -1;
+        int r = object_write(OBJ_TREE, d, l, id_out);
+        free(d); return r;
+    }
+ 
+    // sort by path so directory prefixes are grouped contiguously
+    qsort(idx.entries, (size_t)idx.count, sizeof(IndexEntry),
+          compare_index_entries_by_path);
+ 
+    // kick off recursive tree building from root prefix ""
+    return write_tree_level(idx.entries, idx.count, "", id_out);
+}
+ 
+ 

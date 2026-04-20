@@ -151,6 +151,27 @@ static int write_tree_level(const IndexEntry *entries, int count,
             // e.g. prefix="" dir_name="src" → sub_prefix="src/"
             char sub_prefix[512];
             snprintf(sub_prefix, sizeof(sub_prefix), "%s%s/", prefix, dir_name);
+             int sub_start = i;
+            while (i < count &&
+                   strncmp(entries[i].path, sub_prefix, strlen(sub_prefix)) == 0)
+                i++;
+ 
+            // recurse: build the subtree for this subdirectory
+            ObjectID sub_id;
+            if (write_tree_level(entries + sub_start, i - sub_start,
+                                 sub_prefix, &sub_id) != 0)
+                return -1;
+ 
+            // add a MODE_DIR entry pointing to the returned subtree hash
+            if (tree.count >= MAX_TREE_ENTRIES) return -1;
+            TreeEntry *te = &tree.entries[tree.count++];
+            te->mode = MODE_DIR;
+            te->hash = sub_id;
+            strncpy(te->name, dir_name, sizeof(te->name) - 1);
+            te->name[sizeof(te->name) - 1] = '\0';
+        }
+    }
+ 
  
 // ─── TODO: Implement these ──────────────────────────────────────────────────
 

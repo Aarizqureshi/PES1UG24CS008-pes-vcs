@@ -229,3 +229,34 @@ int index_add(Index *index, const char *path) {
     size_t bytes_read = fread(buf, 1, (size_t)file_size, f);
     fclose(f);
     if (bytes_read != (size_t)file_size) { free(buf); return -1; }
+ObjectID blob_id;
+    if (object_write(OBJ_BLOB, buf, bytes_read, &blob_id) != 0) {
+        free(buf);
+        return -1;
+    }
+    free(buf);
+ 
+    // get fresh metadata for mtime and size (use lstat to handle symlinks)
+    struct stat st;
+    if (lstat(path, &st) != 0) return -1;
+ 
+    // upsert: update existing entry if the file is already staged,
+    // otherwise append a new entry at the end
+    IndexEntry *entry = index_find(index, path);
+    if (!entry) {
+        if (index->count >= MAX_INDEX_ENTRIES) {
+            fprintf(stderr, "error: index is full\n");
+            return -1;
+        }
+        entry = &index->entries[index->count++];
+    }
+ 
+    entry->hash      = blob_id;
+    entry->mtime_sec = (uint64_t)st.st_mtime;
+    entry->size      = (uint32_t)st.st_size;
+    entry->mode      = S_ISREG(st.st_mode)
+                         ? ((st.st_mode & S_IXUSR) ? 0100755 : 0100644)
+                         : 0100644;
+    strncpy(entry->path, path, sizeof(entry->path) - 1);
+    entry->path[sizeof(entry->path) - 1] = '\0';
+ 

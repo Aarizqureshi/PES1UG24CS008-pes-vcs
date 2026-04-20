@@ -195,11 +195,7 @@ int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_
         free(buf);
         return -1;  // Corrupted object
     }
-int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
-    // TODO: Implement
-    (void)type; (void)data; (void)len; (void)id_out;
-    return -1;
-}
+
 
 uint8_t *null_ptr = memchr(buf, '\0', bytes_read);
     if (!null_ptr) {

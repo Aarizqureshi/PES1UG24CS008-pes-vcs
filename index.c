@@ -259,4 +259,5 @@ ObjectID blob_id;
                          : 0100644;
     strncpy(entry->path, path, sizeof(entry->path) - 1);
     entry->path[sizeof(entry->path) - 1] = '\0';
- 
+ return index_save(index);
+}

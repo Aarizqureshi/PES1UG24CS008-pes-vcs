@@ -205,3 +205,9 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
     int ret = object_write(OBJ_COMMIT, raw, raw_len, &commit_id);
     free(raw);
     if (ret != 0) return -1;
+    if (head_update(&commit_id) != 0) return -1;
+ 
+    // hand the new commit hash back to the caller if they want it
+    if (commit_id_out) *commit_id_out = commit_id;
+    return 0;
+}

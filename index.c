@@ -209,3 +209,23 @@ int index_save(const Index *index) {
     }
     return 0;
 }
+int index_add(Index *index, const char *path) {
+    // open and measure the file
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        fprintf(stderr, "error: cannot open '%s'\n", path);
+        return -1;
+    }
+ 
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (file_size < 0) { fclose(f); return -1; }
+ 
+    // read the entire file into a heap buffer
+    uint8_t *buf = malloc((size_t)file_size);
+    if (!buf) { fclose(f); return -1; }
+ 
+    size_t bytes_read = fread(buf, 1, (size_t)file_size, f);
+    fclose(f);
+    if (bytes_read != (size_t)file_size) { free(buf); return -1; }

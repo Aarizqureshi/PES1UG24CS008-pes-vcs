@@ -185,3 +185,11 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
     memset(&c, 0, sizeof(c));
  
     if (tree_from_index(&c.tree) != 0) return -1;
+
+     ObjectID parent;
+    if (head_read(&parent) == 0) {
+        c.has_parent = 1;
+        c.parent     = parent;
+    } else {
+        c.has_parent = 0;  // first commit — no parent line in the object
+    }

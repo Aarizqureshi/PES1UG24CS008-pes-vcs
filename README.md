@@ -249,20 +249,3 @@ T6      Update branch ref
 **The key insight**: GC should only delete objects that have been unreachable for a sufficiently long time, not objects that became unreachable in the current instant.
 
 ---
-
-## Submission Checklist
-
-### Completed Items
-
-- [x] All 5 source files implemented (`object.c`, `tree.c`, `index.c`, `commit.c`, `pes.h` unchanged)
-- [x] All 9 screenshots captured and included
-- [x] Phase 5 analysis questions answered (Q5.1, Q5.2, Q5.3)
-- [x] Phase 6 analysis questions answered (Q6.1, Q6.2)
-- [x] Minimum 5 commits per phase with descriptive messages
-- [x] Repository made public on GitHub
-
----
-
-## Repository Link
-
-**GitHub Repository:** https://github.com/AarizQureshi/PES1UG24CS008-pes-vcs

@@ -138,6 +138,19 @@ static int write_tree_level(const IndexEntry *entries, int count,
             strncpy(te->name, rel, sizeof(te->name) - 1);
             te->name[sizeof(te->name) - 1] = '\0';
             i++;
+        } 
+        else 
+            {
+            // slash present → entry lives inside a subdirectory at this level
+            size_t dir_name_len = (size_t)(slash - rel);
+            char   dir_name[256];
+            if (dir_name_len >= sizeof(dir_name)) return -1;
+            memcpy(dir_name, rel, dir_name_len);
+            dir_name[dir_name_len] = '\0';
+ 
+            // e.g. prefix="" dir_name="src" → sub_prefix="src/"
+            char sub_prefix[512];
+            snprintf(sub_prefix, sizeof(sub_prefix), "%s%s/", prefix, dir_name);
  
 // ─── TODO: Implement these ──────────────────────────────────────────────────
 

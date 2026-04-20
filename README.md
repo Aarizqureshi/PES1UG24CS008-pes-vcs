@@ -88,6 +88,9 @@ Implemented commit creation and history traversal. Commits tie together trees wi
 **Screenshot 4C: Reference Chain (HEAD and main)**
 ![Phase 4C - Refs](Screenshots/4C.png)
 
+**Final Screenshot: Test Integrations**  
+![Final Screenshot](Screenshots/final.png)
+
 ---
 
 ## Phase 5: Branching and Checkout (Analysis)

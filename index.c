@@ -125,51 +125,40 @@ int index_status(const Index *index) {
     return 0;
 }
 
-// ─── TODO: Implement these ───────────────────────────────────────────────────
-
-// Load the index from .pes/index.
-//
-// HINTS - Useful functions:
-//   - fopen (with "r"), fscanf, fclose : reading the text file line by line
-//   - hex_to_hash                      : converting the parsed string to ObjectID
-//
-// Returns 0 on success, -1 on error.
 int index_load(Index *index) {
-    // TODO: Implement index loading
-    // (See Lab Appendix for logical steps)
-    (void)index;
-    return -1;
+    index->count = 0;
+ 
+    FILE *f = fopen(INDEX_FILE, "r");
+    if (!f) {
+        // file not existing just means no entries staged yet
+        return 0;
+    }
+ 
+    char hex[HASH_HEX_SIZE + 1];
+ 
+    while (index->count < MAX_INDEX_ENTRIES) {
+        IndexEntry *e = &index->entries[index->count];
+ 
+        // parse one line: mode  hex-hash  mtime  size  path
+        int n = fscanf(f, "%o %64s %llu %u %511s",
+                       &e->mode,
+                       hex,
+                       (unsigned long long *)&e->mtime_sec,
+                       &e->size,
+                       e->path);
+ 
+        if (n == EOF || n < 5) break;  // done or malformed — stop either way
+ 
+        // convert the 64-char hex string back to the 32-byte binary ObjectID
+        if (hex_to_hash(hex, &e->hash) != 0) {
+            fclose(f);
+            return -1;
+        }
+ 
+        index->count++;
+    }
+ 
+    fclose(f);
+    return 0;
 }
-
-// Save the index to .pes/index atomically.
-//
-// HINTS - Useful functions and syscalls:
-//   - qsort                            : sorting the entries array by path
-//   - fopen (with "w"), fprintf        : writing to the temporary file
-//   - hash_to_hex                      : converting ObjectID for text output
-//   - fflush, fileno, fsync, fclose    : flushing userspace buffers and syncing to disk
-//   - rename                           : atomically moving the temp file over the old index
-//
-// Returns 0 on success, -1 on error.
-int index_save(const Index *index) {
-    // TODO: Implement atomic index saving
-    // (See Lab Appendix for logical steps)
-    (void)index;
-    return -1;
-}
-
-// Stage a file for the next commit.
-//
-// HINTS - Useful functions and syscalls:
-//   - fopen, fread, fclose             : reading the target file's contents
-//   - object_write                     : saving the contents as OBJ_BLOB
-//   - stat / lstat                     : getting file metadata (size, mtime, mode)
-//   - index_find                       : checking if the file is already staged
-//
-// Returns 0 on success, -1 on error.
-int index_add(Index *index, const char *path) {
-    // TODO: Implement file staging
-    // (See Lab Appendix for logical steps)
-    (void)index; (void)path;
-    return -1;
-}
+ 

@@ -118,6 +118,27 @@ static int compare_index_entries_by_path(const void *a, const void *b) {
                   ((const IndexEntry *)b)->path);
 }
 
+static int write_tree_level(const IndexEntry *entries, int count,
+                            const char *prefix, ObjectID *id_out) {
+    Tree tree;
+    tree.count = 0;
+ 
+    int i = 0;
+    while (i < count) {
+        // strip the current prefix to get the name relative to this level
+        const char *rel   = entries[i].path + strlen(prefix);
+        const char *slash = strchr(rel, '/');
+ 
+        if (slash == NULL) {
+            // no slash → flat file in this directory, add as blob entry
+            if (tree.count >= MAX_TREE_ENTRIES) return -1;
+            TreeEntry *te = &tree.entries[tree.count++];
+            te->mode = entries[i].mode;
+            te->hash = entries[i].hash;
+            strncpy(te->name, rel, sizeof(te->name) - 1);
+            te->name[sizeof(te->name) - 1] = '\0';
+            i++;
+ 
 // ─── TODO: Implement these ──────────────────────────────────────────────────
 
 // Build a tree hierarchy from the current index and write all tree

@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <dirent.h>
 
+int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
 // ─── PROVIDED ────────────────────────────────────────────────────────────────
 
 // Find an index entry by path (linear scan).
@@ -159,6 +160,7 @@ int index_load(Index *index) {
     }
  
     fclose(f);
+
     return 0;
 }
 
@@ -181,13 +183,21 @@ int index_save(const Index *index) {
     if (!f) { close(fd); unlink(tmp_path); return -1; }
  
     // sort a mutable copy so we don't reorder the caller's in-memory index
-    Index sorted = *index;
-    qsort(sorted.entries, (size_t)sorted.count,
-          sizeof(IndexEntry), compare_entries_by_path);
+Index *sorted = malloc(sizeof(Index));
+if (!sorted) {
+    fclose(f);
+    unlink(tmp_path);
+    return -1;
+}
+
+*sorted = *index;
+
+qsort(sorted->entries, (size_t)sorted->count,
+      sizeof(IndexEntry), compare_entries_by_path);
  
     char hex[HASH_HEX_SIZE + 1];
-    for (int i = 0; i < sorted.count; i++) {
-        const IndexEntry *e = &sorted.entries[i];
+    for (int i = 0; i < sorted->count; i++) {
+    const IndexEntry *e = &sorted->entries[i];
         hash_to_hex(&e->hash, hex);
         fprintf(f, "%o %s %llu %u %s\n",
                 e->mode,
@@ -207,6 +217,7 @@ int index_save(const Index *index) {
         unlink(tmp_path);
         return -1;
     }
+    free(sorted);
     return 0;
 }
 int index_add(Index *index, const char *path) {

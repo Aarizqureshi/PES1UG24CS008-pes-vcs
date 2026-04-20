@@ -113,6 +113,10 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
     *len_out = offset;
     return 0;
 }
+static int compare_index_entries_by_path(const void *a, const void *b) {
+    return strcmp(((const IndexEntry *)a)->path,
+                  ((const IndexEntry *)b)->path);
+}
 
 // ─── TODO: Implement these ──────────────────────────────────────────────────
 

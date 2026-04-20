@@ -201,30 +201,65 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     return -1;
 }
 
-// Read an object from the store.
-//
-// Steps:
-//   1. Build the file path from the hash using object_path()
-//   2. Open and read the entire file
-//   3. Parse the header to extract the type string and size
-//   4. Verify integrity: recompute the SHA-256 of the file contents
-//      and compare to the expected hash (from *id). Return -1 if mismatch.
-//   5. Set *type_out to the parsed ObjectType
-//   6. Allocate a buffer, copy the data portion (after the \0), set *data_out and *len_out
-//
-// HINTS - Useful syscalls and functions for this phase:
-//   - object_path        : getting the target file path
-//   - fopen, fread, fseek: reading the file into memory
-//   - memchr             : safely finding the '\0' separating header and data
-//   - strncmp            : parsing the type string ("blob", "tree", "commit")
-//   - compute_hash       : re-hashing the read data for integrity verification
-//   - memcmp             : comparing the computed hash against the requested hash
-//   - malloc, memcpy     : allocating and returning the extracted data
-//
-// The caller is responsible for calling free(*data_out).
-// Returns 0 on success, -1 on error (file not found, corrupt, etc.).
-int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
-    // TODO: Implement
-    (void)id; (void)type_out; (void)data_out; (void)len_out;
-    return -1;
+uint8_t *null_ptr = memchr(buf, '\0', bytes_read);
+    if (!null_ptr) {
+        free(buf);
+        return -1;
+    }
+ 
+    // The header is everything before '\0'
+    char *header = (char *)buf;
+    size_t header_len = (size_t)(null_ptr - buf);  // length without '\0'
+ 
+    // Parse the type string (everything before the first space)
+    // Format: "<type> <size>"
+    char *space = memchr(header, ' ', header_len);
+    if (!space) {
+        free(buf);
+        return -1;
+    }
+ 
+    // Compare type prefix
+    size_t type_len = (size_t)(space - header);
+    ObjectType parsed_type;
+    if (strncmp(header, "blob", type_len) == 0 && type_len == 4) {
+        parsed_type = OBJ_BLOB;
+    } else if (strncmp(header, "tree", type_len) == 0 && type_len == 4) {
+        parsed_type = OBJ_TREE;
+    } else if (strncmp(header, "commit", type_len) == 0 && type_len == 6) {
+        parsed_type = OBJ_COMMIT;
+    } else {
+        free(buf);
+        return -1;
+    }
+ 
+    // Parse the declared size from header (after the space)
+    size_t declared_size = (size_t)atol(space + 1);
+ 
+    // The data payload starts immediately after the '\0'
+    uint8_t *data_start = null_ptr + 1;
+    size_t data_len = bytes_read - (header_len + 1);  // total - header - '\0'
+ 
+    // Sanity check: declared size must match actual data length
+    if (declared_size != data_len) {
+        free(buf);
+        return -1;
+    }
+ 
+    // Allocate output buffer and copy data payload
+    void *out = malloc(data_len);
+    if (!out) {
+        free(buf);
+        return -1;
+    }
+    memcpy(out, data_start, data_len);
+ 
+    free(buf);
+ 
+    // Set all output parameters
+    *type_out = parsed_type;
+    *data_out = out;
+    *len_out  = data_len;
+ 
+    return 0;
 }

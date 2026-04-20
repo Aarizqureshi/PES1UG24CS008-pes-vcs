@@ -153,6 +153,48 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     *id_out = id;
     return 0;
 }
+
+int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
+    
+ 
+    char path[512];
+    object_path(id, path, sizeof(path));
+ 
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+ 
+    // Determine file size
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+ 
+    if (file_size <= 0) {
+        fclose(f);
+        return -1;
+    }
+ 
+    // Read entire file into memory
+    uint8_t *buf = malloc((size_t)file_size);
+    if (!buf) {
+        fclose(f);
+        return -1;
+    }
+ 
+    size_t bytes_read = fread(buf, 1, (size_t)file_size, f);
+    fclose(f);
+ 
+    if (bytes_read != (size_t)file_size) {
+        free(buf);
+        return -1;
+    }
+ 
+    // Integrity check: recompute the hash and compare with the expected id
+    ObjectID computed;
+    compute_hash(buf, bytes_read, &computed);
+    if (memcmp(computed.hash, id->hash, HASH_SIZE) != 0) {
+        free(buf);
+        return -1;  // Corrupted object
+    }
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
     // TODO: Implement
     (void)type; (void)data; (void)len; (void)id_out;
